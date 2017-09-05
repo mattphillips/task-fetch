@@ -1,33 +1,41 @@
 const Task = require('data.task');
 const { Left, Right } = require('data.either');
-const { chain, compose, identity, ifElse, prop } = require('ramda');
+const { Just, Nothing } = require('data.maybe');
+const { chain, compose, ifElse, prop } = require('ramda');
 
-const tryCatch = async (promise, error, success) => {
+const taskToEither = task => task.fork(Left, Right);
+const taskToMaybe = task => task.fork(Nothing, Just);
+
+const tryCatch = promise => async (reject, resolve) => {
   try {
     const result = await promise();
-    return success(result);
+    return resolve(result);
   } catch (e) {
-    return error(e);
+    return reject(e);
   }
 };
 
-const rejectError = reject => compose(reject, Left);
-const resolveSuccess = resolve => compose(resolve, Right);
-
-const fetchTask = fetch => url => new Task((reject, resolve) =>
-  tryCatch(() => fetch(url), rejectError(reject), resolveSuccess(resolve)));
-
-const parseJson = result => new Task((reject, resolve) =>
-  result.chain(res => tryCatch(() => res.json(), rejectError(reject), resolveSuccess(resolve))));
-
-const isOk = result => new Task((reject, resolve) => chain(
+const fetchTask = fetch => url => new Task(tryCatch(() => fetch(url)));
+const parseJson = res => new Task(tryCatch(() => res.json()));
+const isOk = res => new Task((reject, resolve) =>
   ifElse(
     prop('ok'),
-    resolveSuccess(resolve),
-    res => tryCatch(() => res.text(), rejectError(reject), rejectError(reject))
-  )
-)(result));
+    resolve,
+    () => tryCatch(() => res.text())(reject, reject)
+  )(res)
+);
 
-const safeFetch = fetch => compose(chain(parseJson), chain(isOk), fetchTask(fetch));
+// taskFetch :: (String -> Promise) -> String -> Task
+const taskFetch = fetch => compose(chain(parseJson), chain(isOk), fetchTask(fetch));
 
-module.exports = safeFetch;
+// eitherFetch :: (String -> Promise) -> String -> Either
+const eitherFetch = fetch => compose(taskToEither, taskFetch(fetch));
+
+// maybeFetch :: (String -> Promise) -> String -> Maybe
+const maybeFetch = fetch => compose(taskToMaybe, taskFetch(fetch));
+
+module.exports = {
+  taskFetch,
+  eitherFetch,
+  maybeFetch
+};

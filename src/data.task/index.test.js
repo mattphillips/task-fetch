@@ -1,21 +1,18 @@
-const { Left, Right } = require('data.either');
-
-const safeFetch = require('./');
+const { eitherFetch: safeFetch } = require('./');
 
 describe('data.task', () => {
 
   const url = 'http://whatever.trevor.com';
 
   describe('returns either left', () => {
+
     it('when fetch fails', async () => {
-      expect.assertions(2);
+      expect.assertions(3);
       const error = new Error('🔥');
       const fetchSpy = jest.fn(() => Promise.reject(error));
-      await safeFetch(fetchSpy)(url).fork(
-        actual => expect(actual).toEqual(Left(error)),
-        () => expect(true).toEqual(false)
-      );
-
+      const actual = await safeFetch(fetchSpy)(url);
+      expect(actual.isLeft).toEqual(true);
+      expect(actual.value).toEqual(error);
       expect(fetchSpy).toHaveBeenCalledWith(url);
     });
 
@@ -28,13 +25,9 @@ describe('data.task', () => {
       };
       const fetchSpy = jest.fn(() => Promise.resolve(res));
 
-      await safeFetch(fetchSpy)(url).fork(
-        actual => {
-          expect(actual.isLeft).toEqual(true);
-          expect(actual.value).toEqual(error);
-        },
-        () => expect(true).toEqual(false)
-      );
+      const actual = await safeFetch(fetchSpy)(url);
+      expect(actual.isLeft).toEqual(true);
+      expect(actual.value).toEqual(error);
 
       expect(fetchSpy).toHaveBeenCalled();
       expect(res.text).toHaveBeenCalled();
@@ -49,13 +42,9 @@ describe('data.task', () => {
       };
       const fetchSpy = jest.fn(() => Promise.resolve(res));
 
-      await safeFetch(fetchSpy)(url).fork(
-        actual => {
-          expect(actual.isLeft).toEqual(true);
-          expect(actual.value).toEqual(error);
-        },
-        () => expect(true).toEqual(false)
-      );
+      const actual = await safeFetch(fetchSpy)(url);
+      expect(actual.isLeft).toEqual(true);
+      expect(actual.value).toEqual(error);
 
       expect(fetchSpy).toHaveBeenCalled();
       expect(res.text).toHaveBeenCalled();
@@ -70,14 +59,10 @@ describe('data.task', () => {
         json: jest.fn(() => Promise.reject(error)),
       };
       const fetchSpy = jest.fn(() => Promise.resolve(res));
+      const actual = await safeFetch(fetchSpy)(url);
 
-      await safeFetch(fetchSpy)(url).fork(
-        actual => {
-          expect(actual.isLeft).toEqual(true);
-          expect(actual.value).toEqual(error);
-        },
-        () => expect(true).toEqual(false)
-      );
+      expect(actual.isLeft).toEqual(true);
+      expect(actual.value).toEqual(error);
 
       expect(fetchSpy).toHaveBeenCalled();
       expect(res.text).not.toHaveBeenCalled();
@@ -95,13 +80,10 @@ describe('data.task', () => {
     };
     const fetchSpy = jest.fn(() => Promise.resolve(res));
 
-    await safeFetch(fetchSpy)(url).fork(
-      () => expect(true).toEqual(false),
-      actual => {
-        expect(actual.isRight).toEqual(true);
-        expect(actual.value).toEqual(data);
-      },
-    );
+    const actual = await safeFetch(fetchSpy)(url);
+
+    expect(actual.isRight).toEqual(true);
+    expect(actual.value).toEqual(data);
 
     expect(fetchSpy).toHaveBeenCalled();
     expect(res.text).not.toHaveBeenCalled();
